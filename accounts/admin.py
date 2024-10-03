@@ -19,11 +19,11 @@ class CustomUserAdmin(UserAdmin):
         "is_staff",
         "is_active",
         "is_approved",
+        "is_verified",
     ]
     
     fieldsets = UserAdmin.fieldsets + ((None, {"fields": ("is_approved", "is_manager",)}),)
     add_fieldsets = UserAdmin.add_fieldsets + ((None, {"fields": ("is_approved", "is_manager",)}),)
-    
-    
+
 
 admin.site.register(CustomUser, CustomUserAdmin)

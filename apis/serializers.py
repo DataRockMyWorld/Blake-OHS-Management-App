@@ -12,7 +12,9 @@ from django.urls import reverse
 from accounts.utils import send_normal_email
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.core.exceptions import ValidationError
+from django.contrib.auth import authenticate
 
 User = get_user_model()
 
@@ -25,7 +27,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'username', 'email', 'password', 'password2', 'department']
+        fields = ['first_name', 'last_name','email', 'password', 'password2', 'department']
         extra_kwargs = {
             'password': {'write_only': True},  # Hide password in the response
         }
@@ -44,10 +46,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         Create a new user with encrypted password and return it.
         """
         user = User.objects.create_user(
-            username=validated_data['username'],
+            email=validated_data['email'],
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
-            email=validated_data['email'],
             password=validated_data['password'],
             department=validated_data.get('department', None),
             profile_picture=validated_data.get('profile_picture', None)
@@ -59,6 +60,49 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         self.notify_superusers(user)
         
         return user
+
+    def notify_superusers(self, user):
+        """
+        Sends email notifications to all superusers about a new registration.
+        """
+        superusers = get_user_model().objects.filter(is_superuser=True)
+        for superuser in superusers:
+            send_mail(
+                'New User Registration',
+                f'A new user ({user.email}) has registered. Please review the account for approval.',
+                'admin@example.com',
+                [superuser.email],
+            )
+
+class LoginSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(max_length=155, min_length=6)
+    password=serializers.CharField(max_length=68, write_only=True)
+    full_name=serializers.CharField(max_length=255, read_only=True)
+    access_token=serializers.CharField(max_length=255, read_only=True)
+    refresh_token=serializers.CharField(max_length=255, read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['email', 'password', 'full_name', 'access_token', 'refresh_token']
+
+    
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+        request=self.context.get('request')
+        user = authenticate(request, email=email, password=password)
+        if not user:
+            raise AuthenticationFailed("invalid credential try again")
+        if not user.is_verified:
+            raise AuthenticationFailed("Email is not verified")
+        tokens=user.tokens()
+        return {
+            'email':user.email,
+            'full_name':user.get_full_name,
+            "access_token":str(tokens.get('access')),
+            "refresh_token":str(tokens.get('refresh'))
+        }
 
 
     def notify_superusers(self, user):
@@ -75,6 +119,36 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             recipient_list=recipient_list,
             fail_silently=False,
         )
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # Add custom claims (Add any additional user details to the token if you want)
+        token['email'] = user.email
+        token['first_name'] = user.first_name
+        token['last_name'] = user.last_name
+        token['department'] = user.department
+        
+        return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # Include user data in the response
+        data['user'] = {
+            'id': self.user.id,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'department': self.user.department
+        }
+        return data
+
+class OTPCodeSerializer(serializers.Serializer):
+    otp_code = serializers.CharField(max_length=6)
+
 
 class PostSerializer(serializers.ModelSerializer):
     """
@@ -151,7 +225,7 @@ class SetNewPasswordSerializer(serializers.Serializer):
 
         return user
 
-class LogOutUserSerializer(serializers.Serializer):
+class LogoutUserSerializer(serializers.Serializer):
     """
     Serializer for logging out a user
     """
@@ -162,7 +236,7 @@ class LogOutUserSerializer(serializers.Serializer):
     }
 
     def validate(self, attrs):
-        self.token = attrs['refresh']
+        self.token = attrs['refresh'].strip('"')
         return attrs
 
     def save(self, **kwargs):
@@ -170,4 +244,3 @@ class LogOutUserSerializer(serializers.Serializer):
             RefreshToken(self.token).blacklist()
         except TokenError:
             self.fail('bad_token')
-

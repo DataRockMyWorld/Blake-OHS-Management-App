@@ -1,0 +1,60 @@
+/* Loader container */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+/* Safety-themed loader */
+.safety-loader {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: #ffc107;  /* Safety yellow color */
+    animation: rotateLoader 1.5s linear infinite, pulseLoader 2s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Safety helmet icon from assets folder */
+.helmet-icon {
+    width: 50px;
+    height: 50px;
+    background: url('/assets/images/safety-helmet-icon.png') no-repeat center; /* Use relative path to your assets */
+    background-size: contain;
+}
+
+/* Rotate animation */
+@keyframes rotateLoader {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Pulse effect for dynamic feel */
+@keyframes pulseLoader {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Loading text below the loader */
+.loading-text {
+    margin-top: 20px;
+    font-size: 18px;
+    color: #ffc107;
+    font-weight: 500;
+}

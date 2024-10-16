@@ -25,14 +25,15 @@ from drf_spectacular.views import (
     SpectacularAPIView, 
     SpectacularSwaggerView
 )
+from apis.views import LoginUserView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include("apis.urls")),
     path("api-auth/", include("rest_framework.urls")),
-    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path('api/login/', LoginUserView.as_view(), name='login'),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/v1/auth/", include("social_accounts.urls")),
+    path("api/auth/", include("social_accounts.urls")),
     # Schema
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(
